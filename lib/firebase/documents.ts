@@ -698,7 +698,6 @@ export const uploadDocument = async (
 
     return {
       id: docRef.id,
-      userId,
       type,
       ...docData,
       createdAt: docData.createdAt.toDate(),
