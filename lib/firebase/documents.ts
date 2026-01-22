@@ -73,6 +73,7 @@ export const getDocuments = async (
   status?: DocumentStatus
 ): Promise<Document[]> => {
   if (!db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     const allDocuments: Document[] = [];
 
@@ -82,7 +83,7 @@ export const getDocuments = async (
     // Si es supervisor, obtener todos los usuarios de billing_accounts
     if (role === 'Supervisor') {
       try {
-        const billingAccountsSnapshot = await getDocs(collection(db, BILLING_ACCOUNTS_COLLECTION));
+        const billingAccountsSnapshot = await getDocs(collection(firestore, BILLING_ACCOUNTS_COLLECTION));
         const userIds = billingAccountsSnapshot.docs.map(doc => doc.id);
         console.log('📋 Usuarios encontrados en billing_accounts:', userIds.length, userIds);
         if (userIds.length === 0) {
@@ -115,14 +116,14 @@ export const getDocuments = async (
           let cuentasSnapshot;
           try {
             let cuentasQuery = query(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION),
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION),
               orderBy('createdAt', 'desc')
             );
             cuentasSnapshot = await getDocs(cuentasQuery);
           } catch {
             // Si falla el orderBy, obtener todos sin ordenar
             cuentasSnapshot = await getDocs(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION)
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION)
             );
           }
 
@@ -216,14 +217,14 @@ export const getDocuments = async (
           let incapacidadesSnapshot;
           try {
             let incapacidadesQuery = query(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION),
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION),
               orderBy('createdAt', 'desc')
             );
             incapacidadesSnapshot = await getDocs(incapacidadesQuery);
           } catch {
             // Si falla el orderBy, obtener todos sin ordenar
             incapacidadesSnapshot = await getDocs(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION)
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION)
             );
           }
 
@@ -333,6 +334,7 @@ export const getDocuments = async (
 // Obtener solo documentos pendientes (optimizado para supervisor - consultas en paralelo)
 export const getPendingDocuments = async (): Promise<Document[]> => {
   if (!db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     const allDocuments: Document[] = [];
     const seenDocuments = new Set<string>();
@@ -341,7 +343,7 @@ export const getPendingDocuments = async (): Promise<Document[]> => {
     let userIds: string[] = [];
     try {
       const rescatistasQuery = query(
-        collection(db, 'usuarios'),
+        collection(firestore, 'usuarios'),
         where('rol', '==', 'Rescatista')
       );
       const rescatistasSnapshot = await getDocs(rescatistasQuery);
@@ -352,7 +354,7 @@ export const getPendingDocuments = async (): Promise<Document[]> => {
     } catch (error: any) {
       // Si falla por índice, obtener todos y filtrar
       if (error?.code === 'failed-precondition') {
-        const allUsers = await getDocs(collection(db, 'usuarios'));
+        const allUsers = await getDocs(collection(firestore, 'usuarios'));
         userIds = allUsers.docs
           .filter(doc => {
             const data = doc.data();
@@ -369,7 +371,7 @@ export const getPendingDocuments = async (): Promise<Document[]> => {
     
     // También intentar obtener usuarios de billing_accounts como fallback
     try {
-      const billingAccountsSnapshot = await getDocs(collection(db, BILLING_ACCOUNTS_COLLECTION));
+      const billingAccountsSnapshot = await getDocs(collection(firestore, BILLING_ACCOUNTS_COLLECTION));
       const billingUserIds = billingAccountsSnapshot.docs.map(doc => doc.id);
       billingUserIds.forEach(uid => {
         if (!userIds.includes(uid)) {
@@ -389,7 +391,7 @@ export const getPendingDocuments = async (): Promise<Document[]> => {
         let cuentasSnapshot;
         try {
           const cuentasQuery = query(
-            collection(db, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION),
+            collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION),
             where('estado', '==', 'Pendiente')
           );
           cuentasSnapshot = await getDocs(cuentasQuery);
@@ -397,7 +399,7 @@ export const getPendingDocuments = async (): Promise<Document[]> => {
           if (queryError?.code === 'failed-precondition') {
             // Si falla por índice, obtener todos y filtrar
             const allCuentas = await getDocs(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION)
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, CUENTAS_SUBCOLLECTION)
             );
             cuentasSnapshot = allCuentas;
           } else {
@@ -424,7 +426,7 @@ export const getPendingDocuments = async (): Promise<Document[]> => {
         let incapacidadesSnapshot;
         try {
           const incapacidadesQuery = query(
-            collection(db, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION),
+            collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION),
             where('estado', '==', 'Pendiente')
           );
           incapacidadesSnapshot = await getDocs(incapacidadesQuery);
@@ -432,7 +434,7 @@ export const getPendingDocuments = async (): Promise<Document[]> => {
           if (queryError?.code === 'failed-precondition') {
             // Si falla por índice, obtener todos y filtrar
             const allIncapacidades = await getDocs(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION)
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, uid, INCAPACIDADES_SUBCOLLECTION)
             );
             incapacidadesSnapshot = allIncapacidades;
           } else {
@@ -480,6 +482,7 @@ export const getUserDocuments = async (
   type?: DocumentType
 ): Promise<Document[]> => {
   if (!db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     const allDocuments: Document[] = [];
     const seenDocuments = new Set<string>();
@@ -492,14 +495,14 @@ export const getUserDocuments = async (
         let cuentasSnapshot;
         try {
           const cuentasQuery = query(
-            collection(db, BILLING_ACCOUNTS_COLLECTION, userId, CUENTAS_SUBCOLLECTION),
+            collection(firestore, BILLING_ACCOUNTS_COLLECTION, userId, CUENTAS_SUBCOLLECTION),
             orderBy('createdAt', 'desc')
           );
           cuentasSnapshot = await getDocs(cuentasQuery);
         } catch (error: any) {
           if (error?.code === 'failed-precondition') {
             cuentasSnapshot = await getDocs(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, userId, CUENTAS_SUBCOLLECTION)
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, userId, CUENTAS_SUBCOLLECTION)
             );
           } else {
             throw error;
@@ -528,14 +531,14 @@ export const getUserDocuments = async (
         let incapacidadesSnapshot;
         try {
           const incapacidadesQuery = query(
-            collection(db, BILLING_ACCOUNTS_COLLECTION, userId, INCAPACIDADES_SUBCOLLECTION),
+            collection(firestore, BILLING_ACCOUNTS_COLLECTION, userId, INCAPACIDADES_SUBCOLLECTION),
             orderBy('createdAt', 'desc')
           );
           incapacidadesSnapshot = await getDocs(incapacidadesQuery);
         } catch (error: any) {
           if (error?.code === 'failed-precondition') {
             incapacidadesSnapshot = await getDocs(
-              collection(db, BILLING_ACCOUNTS_COLLECTION, userId, INCAPACIDADES_SUBCOLLECTION)
+              collection(firestore, BILLING_ACCOUNTS_COLLECTION, userId, INCAPACIDADES_SUBCOLLECTION)
             );
           } else {
             throw error;
@@ -580,6 +583,7 @@ export const getUserDocumentCount = async (userId: string): Promise<{
   pending: number;
 }> => {
   if (!db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     let approved = 0;
     let pending = 0;
@@ -587,7 +591,7 @@ export const getUserDocumentCount = async (userId: string): Promise<{
     // Contar cuentas de cobro
     try {
       const cuentasSnapshot = await getDocs(
-        collection(db, BILLING_ACCOUNTS_COLLECTION, userId, CUENTAS_SUBCOLLECTION)
+        collection(firestore, BILLING_ACCOUNTS_COLLECTION, userId, CUENTAS_SUBCOLLECTION)
       );
       cuentasSnapshot.docs.forEach((docSnapshot) => {
         const data = docSnapshot.data();
@@ -605,7 +609,7 @@ export const getUserDocumentCount = async (userId: string): Promise<{
     // Contar incapacidades
     try {
       const incapacidadesSnapshot = await getDocs(
-        collection(db, BILLING_ACCOUNTS_COLLECTION, userId, INCAPACIDADES_SUBCOLLECTION)
+        collection(firestore, BILLING_ACCOUNTS_COLLECTION, userId, INCAPACIDADES_SUBCOLLECTION)
       );
       incapacidadesSnapshot.docs.forEach((docSnapshot) => {
         const data = docSnapshot.data();
@@ -634,6 +638,7 @@ export const uploadDocument = async (
   file: File
 ): Promise<Document> => {
   if (!storage || !db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     console.log('📤 Iniciando subida de documento:', {
       userId,
@@ -685,7 +690,7 @@ export const uploadDocument = async (
     };
 
     const docRef = await addDoc(
-      collection(db, BILLING_ACCOUNTS_COLLECTION, userId, subcollection),
+      collection(firestore, BILLING_ACCOUNTS_COLLECTION, userId, subcollection),
       docData
     );
 
@@ -723,6 +728,7 @@ export const approveDocument = async (
   supervisorId: string
 ): Promise<void> => {
   if (!db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     const subcollection = document.type === 'cuenta_cobro' ? CUENTAS_SUBCOLLECTION : INCAPACIDADES_SUBCOLLECTION;
     const docRef = doc(
@@ -760,6 +766,7 @@ export const rejectDocument = async (
     throw new Error('El motivo de rechazo es obligatorio');
   }
   if (!db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     const subcollection = document.type === 'cuenta_cobro' ? CUENTAS_SUBCOLLECTION : INCAPACIDADES_SUBCOLLECTION;
     const docRef = doc(
@@ -802,6 +809,7 @@ export const deleteDocument = async (document: Document): Promise<void> => {
     throw new Error('Solo se pueden eliminar documentos rechazados');
   }
   if (!storage || !db) throw new Error('Firebase no está inicializado');
+  const firestore = db; // Variable local para que TypeScript infiera el tipo correctamente
   try {
     // Eliminar de Storage
     const storageRef = ref(storage, document.storagePath);
@@ -812,7 +820,7 @@ export const deleteDocument = async (document: Document): Promise<void> => {
 
     // Eliminar de Firestore (de la subcolección correspondiente)
     await deleteDoc(
-      doc(db, BILLING_ACCOUNTS_COLLECTION, document.userId, subcollection, document.id)
+      doc(firestore, BILLING_ACCOUNTS_COLLECTION, document.userId, subcollection, document.id)
     );
   } catch (error) {
     console.error('Error eliminando documento:', error);
