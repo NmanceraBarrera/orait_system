@@ -3,6 +3,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Colores de marca ORAIT */
+  --orait-aquamarine: #80D7C9;
+  --orait-ocean-blue: #4A90E2;
+  --orait-neon-lime: #B8E994;
+  --orait-orange: #FF6B6B;
+  --orait-dark-blue: #2C3E50;
 }
 
 @theme inline {
@@ -10,6 +16,11 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-orait-aquamarine: var(--orait-aquamarine);
+  --color-orait-ocean-blue: var(--orait-ocean-blue);
+  --color-orait-neon-lime: var(--orait-neon-lime);
+  --color-orait-orange: var(--orait-orange);
+  --color-orait-dark-blue: var(--orait-dark-blue);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +34,150 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Animaciones para los delfines */
+@keyframes dolphin-jump-1 {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  15% {
+    transform: translateY(-30px) rotate(-45deg);
+  }
+  30% {
+    transform: translateY(-60px) rotate(-90deg);
+  }
+  45% {
+    transform: translateY(-80px) rotate(-180deg);
+  }
+  60% {
+    transform: translateY(-60px) rotate(-270deg);
+  }
+  75% {
+    transform: translateY(-30px) rotate(-315deg);
+  }
+  100% {
+    transform: translateY(0) rotate(-360deg);
+  }
+}
+
+@keyframes dolphin-jump-2 {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  15% {
+    transform: translateY(-30px) rotate(45deg);
+  }
+  30% {
+    transform: translateY(-60px) rotate(90deg);
+  }
+  45% {
+    transform: translateY(-80px) rotate(180deg);
+  }
+  60% {
+    transform: translateY(-60px) rotate(270deg);
+  }
+  75% {
+    transform: translateY(-30px) rotate(315deg);
+  }
+  100% {
+    transform: translateY(0) rotate(360deg);
+  }
+}
+
+@keyframes wave {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50px);
+  }
+}
+
+.animate-dolphin-jump-1 {
+  animation: dolphin-jump-1 2s ease-in-out infinite;
+}
+
+.animate-dolphin-jump-2 {
+  animation: dolphin-jump-2 2.2s ease-in-out infinite;
+  animation-delay: 0.3s;
+}
+
+.animate-wave {
+  animation: wave 3s linear infinite;
+}
+
+.animate-wave-delayed {
+  animation: wave 3s linear infinite;
+  animation-delay: 1.5s;
+}
+
+/* Animaciones para el acróstico ORAIT */
+@keyframes slideInDiagonal {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateX(-150px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.acrostic-block {
+  opacity: 0;
+  animation: slideInDiagonal 1s ease-out 0.2s forwards;
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+}
+
+.acrostic-block:hover {
+  transform: scale(1.03);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+
+.acrostic-value {
+  opacity: 0;
+}
+
+.acrostic-value.value-1 {
+  animation: fadeInUp 0.5s ease-out 0.6s forwards;
+}
+
+.acrostic-value.value-2 {
+  animation: fadeInUp 0.5s ease-out 0.75s forwards;
+}
+
+.acrostic-value.value-3 {
+  animation: fadeInUp 0.5s ease-out 0.9s forwards;
+}
+
+.acrostic-value.value-4 {
+  animation: fadeInUp 0.5s ease-out 1.05s forwards;
+}
+
+.acrostic-value.value-5 {
+  animation: fadeInUp 0.5s ease-out 1.2s forwards;
+}
+
+.acrostic-value.value-6 {
+  animation: fadeInUp 0.5s ease-out 1.35s forwards;
+}
+
+.acrostic-value.value-7 {
+  animation: fadeInUp 0.5s ease-out 1.5s forwards;
+}
+
+.acrostic-value.value-8 {
+  animation: fadeInUp 0.5s ease-out 1.65s forwards;
 }
