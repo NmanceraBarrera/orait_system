@@ -32,7 +32,7 @@ export default function Home() {
             </div>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-gray-800">
               Somos una empresa innovadora con grandes sueños y proyectos por sacar adelante, 
-              ofrecemos Servicios profesionales de Rescate Acuático y Salvamento según código CIIU 5222, 
+              ofrecemos Servicios profesionales de Rescate Acuático y Salvamento, 
               autorizado en todo el territorio nacional.
             </p>
           </div>
@@ -50,7 +50,7 @@ export default function Home() {
             </div>
             <div className="rounded-xl p-8 shadow-lg" style={{ backgroundColor: '#FFFFFF' }}>
               <p className="text-lg leading-8 mb-6" style={{ color: '#34495E' }}>
-                Ofrecemos servicios profesionales de <strong style={{ color: '#80D7C9' }}>Rescate Acuático y Salvamento</strong> según código CIIU 5222, 
+                Ofrecemos servicios profesionales de <strong style={{ color: '#80D7C9' }}>Rescate Acuático y Salvamento</strong>, 
                 autorizado en todo el territorio nacional, en instalaciones de <strong style={{ color: '#80D7C9' }}>espacios confinados estanques (piscinas)</strong> 
                 y <strong style={{ color: '#80D7C9' }}>espacios abiertos</strong>.
               </p>
