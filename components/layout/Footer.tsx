@@ -117,7 +117,7 @@ export default function Footer() {
                   className="flex items-center gap-2 text-sm text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                 >
                   <Briefcase className="h-4 w-4" />
-                  Trabaja con Nosotros
+                  Presta servicios con Nosotros
                 </Link>
               </li>
             </ul>
