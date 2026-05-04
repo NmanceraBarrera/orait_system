@@ -4,6 +4,7 @@ import "./globals.css";
 import AppBar from "@/components/layout/AppBar";
 import Footer from "@/components/layout/Footer";
 import { Toaster } from "react-hot-toast";
+import logoImage from "@/app/assets/logo.png";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,6 +19,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ORait System - ORAIT S.A.S. | Rescate Acuático y Salvavidas",
   description: "Sistema de gestión para rescatistas acuáticos y supervisores de ORAIT S.A.S. - Salvavidas profesionales para piscinas y estanques",
+  icons: {
+    icon: logoImage.src,
+    apple: logoImage.src,
+  },
 };
 
 export default function RootLayout({
