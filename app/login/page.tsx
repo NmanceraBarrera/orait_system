@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut } from '@/lib/firebase/auth';
 import { getUserRole, getUserData, getUserStatusFromRecursos } from '@/lib/firebase/auth';
@@ -158,6 +159,15 @@ export default function LoginPage() {
             >
               {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
+
+            <Link
+              href="https://orait-b92dd.web.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full rounded-lg border border-gray-500 px-4 py-2.5 text-center font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              Ir a Servicios
+            </Link>
           </form>
         </div>
       </div>

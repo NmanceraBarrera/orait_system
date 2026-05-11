@@ -109,22 +109,12 @@ export default function AppBar() {
                   </div>
                 </>
               ) : (
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="https://orait-b92dd.web.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-800 hover:text-white"
-                  >
-                    Servicios
-                  </Link>
-                  <Link
-                    href="/login"
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90" style={{ backgroundColor: '#80D7C9', color: '#000' }}
-                  >
-                    Ingreso Colaboradores
-                  </Link>
-                </div>
+                <Link
+                  href="/login"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90" style={{ backgroundColor: '#80D7C9', color: '#000' }}
+                >
+                  Ingreso Colaboradores
+                </Link>
               )}
             </div>
           </div>
