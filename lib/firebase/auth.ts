@@ -8,6 +8,29 @@ import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'fireb
 import { auth, db } from './config';
 import { User, UserRole } from '@/lib/types';
 
+export const normalizeUserStatus = (status?: string | null): string => {
+  if (!status?.trim()) return 'Sin estado';
+  const normalized = status.trim().toLowerCase();
+  if (normalized === 'activo') return 'Activo';
+  if (normalized === 'inactivo') return 'Inactivo';
+  return status.trim();
+};
+
+const getRecursosStatusMap = async (): Promise<Record<string, string>> => {
+  if (!db) throw new Error('Firebase no está inicializado');
+
+  const statusMap: Record<string, string> = {};
+  const snapshot = await getDocs(collection(db, 'recursos'));
+
+  snapshot.docs.forEach((docSnapshot) => {
+    const data = docSnapshot.data();
+    const uid = (data.uid || docSnapshot.id) as string;
+    statusMap[uid] = normalizeUserStatus(data.status || data.estado || null);
+  });
+
+  return statusMap;
+};
+
 export const signIn = async (email: string, password: string) => {
   if (!auth) throw new Error('Firebase no está inicializado');
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -303,9 +326,9 @@ export const getUserStatusFromRecursos = async (uid: string): Promise<string | n
       
       if (!querySnapshot.empty) {
         const data = querySnapshot.docs[0].data();
-        const status = data.status || data.estado || null;
+        const status = normalizeUserStatus(data.status || data.estado || null);
         console.log('✅ Status encontrado en recursos:', status);
-        return status;
+        return status === 'Sin estado' ? null : status;
       } else {
         console.warn('⚠️ No se encontró documento en recursos con uid:', uid);
       }
@@ -333,9 +356,9 @@ export const getUserStatusFromRecursos = async (uid: string): Promise<string | n
         
         if (foundDoc) {
           const data = foundDoc.data();
-          const status = data.status || data.estado || null;
+          const status = normalizeUserStatus(data.status || data.estado || null);
           console.log('✅ Status encontrado en recursos (método alternativo):', status);
-          return status;
+          return status === 'Sin estado' ? null : status;
         } else {
           console.warn('⚠️ No se encontró documento en recursos con uid:', uid);
         }
@@ -356,6 +379,31 @@ export const getUserStatusFromRecursos = async (uid: string): Promise<string | n
 export const getAllRescatistas = async () => {
   if (!db) throw new Error('Firebase no está inicializado');
   try {
+    const recursosStatusMap = await getRecursosStatusMap();
+
+    const mapRescatista = (docSnapshot: { id: string; data: () => Record<string, unknown> }) => {
+      const data = docSnapshot.data();
+      const uid = (data.uid as string) || docSnapshot.id;
+      const statusFromRecursos = recursosStatusMap[uid];
+      const statusFromUsuarios = normalizeUserStatus(
+        (data.status as string) || (data.estado as string) || null
+      );
+
+      return {
+        uid,
+        correo: (data.correo as string) || '',
+        nombre: (data.nombre as string) || '',
+        rol: data.rol as 'Rescatista',
+        status: statusFromRecursos || statusFromUsuarios,
+        telefono: (data.telefono as string) || '',
+        direccion: (data.direccion as string) || '',
+        eps: (data.eps as string) || '',
+        certificado: (data.certificado as string) || '',
+        nota: (data.nota as string) || '',
+        cedula: (data.cedula as string) || '',
+      };
+    };
+
     // Intentar query por rol
     try {
       const q = query(
@@ -363,47 +411,20 @@ export const getAllRescatistas = async () => {
         where('rol', '==', 'Rescatista')
       );
       const querySnapshot = await getDocs(q);
-      const rescatistas = querySnapshot.docs.map((docSnapshot) => {
-        const data = docSnapshot.data();
-        return {
-          uid: data.uid || docSnapshot.id,
-          correo: data.correo || '',
-          nombre: data.nombre || '',
-          rol: data.rol as 'Rescatista',
-          status: data.status || '',
-          telefono: data.telefono || '',
-          direccion: data.direccion || '',
-          eps: data.eps || '',
-          certificado: data.certificado || '',
-          nota: data.nota || '',
-          cedula: data.cedula || '',
-        };
-      });
-      return rescatistas;
-    } catch (error: any) {
+      return querySnapshot.docs.map(mapRescatista);
+    } catch (error: unknown) {
       // Si falla por índice, obtener todos y filtrar
-      if (error?.code === 'failed-precondition') {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code: string }).code === 'failed-precondition'
+      ) {
         console.warn('⚠️ Query requiere índice. Usando método alternativo...');
         const allUsers = await getDocs(collection(db, 'usuarios'));
-        const rescatistas = allUsers.docs
-          .map((docSnapshot) => {
-            const data = docSnapshot.data();
-            return {
-              uid: data.uid || docSnapshot.id,
-              correo: data.correo || '',
-              nombre: data.nombre || '',
-              rol: data.rol as 'Rescatista',
-              status: data.status || '',
-              telefono: data.telefono || '',
-              direccion: data.direccion || '',
-              eps: data.eps || '',
-              certificado: data.certificado || '',
-              nota: data.nota || '',
-              cedula: data.cedula || '',
-            };
-          })
+        return allUsers.docs
+          .map(mapRescatista)
           .filter((user) => user.rol === 'Rescatista');
-        return rescatistas;
       }
       throw error;
     }

@@ -504,10 +504,12 @@ export default function SupervisorDashboard() {
                                   className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
                                     rescatista.status === 'Activo'
                                       ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                      : rescatista.status === 'Inactivo'
+                                        ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                   }`}
                                 >
-                                  {rescatista.status || 'N/A'}
+                                  {rescatista.status}
                                 </span>
                               </td>
                               <td className="whitespace-nowrap px-6 py-4 text-center">
