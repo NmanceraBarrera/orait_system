@@ -10,16 +10,38 @@ import {
   approveDocument,
   rejectDocument,
 } from '@/lib/firebase/documents';
-import { getAllRescatistas, updateUserCedula } from '@/lib/firebase/auth';
+import { getAllRescatistas, updateUserSupervisorData } from '@/lib/firebase/auth';
 import { getAllSolicitudes, validarSolicitud } from '@/lib/firebase/solicitudes';
 import { SOLICITUD_DOCUMENT_FIELDS } from '@/lib/constants/solicitudDocuments';
 import { Document, DocumentType, Solicitud } from '@/lib/types';
 import StatusBadge from '@/components/ui/StatusBadge';
 import toast from 'react-hot-toast';
-import { CheckCircle, XCircle, Eye, Users, Clock, History, FileText, Briefcase, Download, Search, Edit, IdCard } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, Users, Clock, History, FileText, Briefcase, Download, Search, Edit, IdCard, StickyNote } from 'lucide-react';
 import Link from 'next/link';
 
 type ViewMode = 'pending' | 'rescatistas' | 'history' | 'solicitudes';
+
+type RescatistaItem = {
+  uid: string;
+  nombre: string;
+  correo: string;
+  telefono: string;
+  cedula: string;
+  novedad: string;
+  status: string;
+  documentCount?: number;
+  pendingCount?: number;
+};
+
+const getStatusBadgeClass = (status: string) => {
+  if (status === 'Activo') {
+    return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+  }
+  if (status === 'Inactivo') {
+    return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+  }
+  return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+};
 
 export default function SupervisorDashboard() {
   const { user } = useAuth();
@@ -41,9 +63,10 @@ export default function SupervisorDashboard() {
   const [motivoValidacion, setMotivoValidacion] = useState('');
   const [validarAprobada, setValidarAprobada] = useState<boolean | null>(null);
   const [filtroRescatistas, setFiltroRescatistas] = useState('');
-  const [showCedulaModal, setShowCedulaModal] = useState(false);
-  const [selectedRescatistaForCedula, setSelectedRescatistaForCedula] = useState<any | null>(null);
+  const [showEditRescatistaModal, setShowEditRescatistaModal] = useState(false);
+  const [selectedRescatistaForEdit, setSelectedRescatistaForEdit] = useState<RescatistaItem | null>(null);
   const [cedulaValue, setCedulaValue] = useState('');
+  const [novedadValue, setNovedadValue] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -186,51 +209,185 @@ export default function SupervisorDashboard() {
     setViewMode('history');
   };
 
-  const openCedulaModal = (rescatista: any) => {
-    setSelectedRescatistaForCedula(rescatista);
+  const openEditRescatistaModal = (rescatista: RescatistaItem) => {
+    setSelectedRescatistaForEdit(rescatista);
     setCedulaValue(rescatista.cedula || '');
-    setShowCedulaModal(true);
+    setNovedadValue(rescatista.novedad || '');
+    setShowEditRescatistaModal(true);
   };
 
-  const handleSaveCedula = async () => {
-    if (!selectedRescatistaForCedula || !cedulaValue.trim()) {
-      toast.error('La cédula no puede estar vacía');
-      return;
-    }
+  const handleSaveRescatistaData = async () => {
+    if (!selectedRescatistaForEdit) return;
 
     setProcessing(true);
     try {
-      await updateUserCedula(selectedRescatistaForCedula.uid, cedulaValue.trim());
-      toast.success('Cédula actualizada exitosamente');
-      setShowCedulaModal(false);
-      setSelectedRescatistaForCedula(null);
+      await updateUserSupervisorData(selectedRescatistaForEdit.uid, {
+        cedula: cedulaValue.trim(),
+        novedad: novedadValue.trim(),
+      });
+      toast.success('Datos del rescatista actualizados');
+      setShowEditRescatistaModal(false);
+      setSelectedRescatistaForEdit(null);
       setCedulaValue('');
-      loadData(); // Recargar los datos para mostrar la cédula actualizada
-    } catch (error: any) {
-      console.error('Error guardando cédula:', error);
-      toast.error(error.message || 'Error al guardar la cédula');
+      setNovedadValue('');
+      loadData();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al guardar los datos';
+      console.error('Error guardando datos del rescatista:', error);
+      toast.error(message);
     } finally {
       setProcessing(false);
     }
   };
 
-  // Calcular rescatistas filtrados
   const rescatistasFiltrados = useMemo(() => {
-    const listaRescatistas = rescatistasWithCounts.length > 0 
-      ? rescatistasWithCounts 
-      : rescatistas;
-    
+    const listaRescatistas = (rescatistasWithCounts.length > 0
+      ? rescatistasWithCounts
+      : rescatistas) as RescatistaItem[];
+
     if (!filtroRescatistas.trim()) {
       return listaRescatistas;
     }
 
     const filtroLower = filtroRescatistas.toLowerCase().trim();
-    return listaRescatistas.filter((rescatista: any) => {
+    return listaRescatistas.filter((rescatista) => {
       const nombre = (rescatista.nombre || '').toLowerCase();
       const correo = (rescatista.correo || '').toLowerCase();
-      return nombre.includes(filtroLower) || correo.includes(filtroLower);
+      const cedula = (rescatista.cedula || '').toLowerCase();
+      const novedad = (rescatista.novedad || '').toLowerCase();
+      return (
+        nombre.includes(filtroLower) ||
+        correo.includes(filtroLower) ||
+        cedula.includes(filtroLower) ||
+        novedad.includes(filtroLower)
+      );
     });
   }, [filtroRescatistas, rescatistasWithCounts, rescatistas]);
+
+  const rescatistasActivos = useMemo(
+    () => rescatistasFiltrados.filter((rescatista) => rescatista.status === 'Activo'),
+    [rescatistasFiltrados]
+  );
+
+  const rescatistasInactivos = useMemo(
+    () => rescatistasFiltrados.filter((rescatista) => rescatista.status === 'Inactivo'),
+    [rescatistasFiltrados]
+  );
+
+  const rescatistasSinEstado = useMemo(
+    () =>
+      rescatistasFiltrados.filter(
+        (rescatista) => rescatista.status !== 'Activo' && rescatista.status !== 'Inactivo'
+      ),
+    [rescatistasFiltrados]
+  );
+
+  const pendingByEmployee = useMemo(() => {
+    const groups = new Map<string, Document[]>();
+
+    pendingDocuments.forEach((doc) => {
+      const current = groups.get(doc.userId) || [];
+      current.push(doc);
+      groups.set(doc.userId, current);
+    });
+
+    return Array.from(groups.entries())
+      .map(([userId, docs]) => ({
+        userId,
+        name: userNamesMap[userId] || `${userId.substring(0, 8)}...`,
+        docs: docs.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [pendingDocuments, userNamesMap]);
+
+  const renderRescatistaCard = (rescatista: RescatistaItem) => (
+    <div
+      key={rescatista.uid}
+      className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-5"
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-semibold text-gray-900 dark:text-white">
+            {rescatista.nombre || 'Sin nombre'}
+          </h3>
+          <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400">{rescatista.correo}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+            {rescatista.telefono || 'Sin teléfono'}
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(rescatista.status)}`}>
+          {rescatista.status}
+        </span>
+      </div>
+
+      <div className="mb-4 space-y-3 text-sm">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Cédula</p>
+          <p className="mt-1 text-gray-900 dark:text-white">{rescatista.cedula || 'Sin cédula'}</p>
+        </div>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Novedad</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-gray-900 dark:text-white">
+            {rescatista.novedad || 'Sin novedad registrada'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-auto flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => openEditRescatistaModal(rescatista)}
+          disabled={processing}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+        >
+          <Edit className="h-4 w-4" />
+          Editar datos
+        </button>
+        <button
+          type="button"
+          onClick={() => handleRescatistaSelect(rescatista.uid)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+        >
+          <History className="h-4 w-4" />
+          Ver histórico
+          {rescatista.pendingCount && rescatista.pendingCount > 0 ? (
+            <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">NEW</span>
+          ) : rescatista.documentCount && rescatista.documentCount > 0 ? (
+            <span className="rounded-full bg-blue-400 px-2 py-0.5 text-xs font-medium text-white">
+              {rescatista.documentCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderRescatistaSection = (
+    title: string,
+    items: RescatistaItem[],
+    emptyMessage: string,
+    accentClass: string
+  ) => (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+        <span className={`rounded-full px-3 py-1 text-sm font-medium ${accentClass}`}>
+          {items.length}
+        </span>
+      </div>
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+          {emptyMessage}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {items.map(renderRescatistaCard)}
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <RoleGuard allowedRoles={['Supervisor']}>
@@ -246,46 +403,46 @@ export default function SupervisorDashboard() {
           </div>
 
           {/* Navegación de vistas */}
-          <div className="mb-6 flex gap-2 rounded-xl bg-white p-2 shadow-lg dark:bg-gray-800">
+          <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-white p-2 shadow-lg dark:bg-gray-800 lg:grid-cols-4">
             <button
               onClick={() => {
                 setViewMode('pending');
                 setSelectedRescatista(null);
               }}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:px-4 sm:text-base ${
                 viewMode === 'pending'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
-              <Clock className="h-5 w-5" />
-              Pendientes
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="truncate">Pendientes</span>
             </button>
             <button
               onClick={() => {
                 setViewMode('rescatistas');
                 setSelectedRescatista(null);
               }}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:px-4 sm:text-base ${
                 viewMode === 'rescatistas'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
-              <Users className="h-5 w-5" />
-              Rescatistas
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="truncate">Rescatistas</span>
             </button>
             {selectedRescatista && (
               <button
                 onClick={() => setViewMode('history')}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+                className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:px-4 sm:text-base ${
                   viewMode === 'history'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
-                <History className="h-5 w-5" />
-                Histórico
+                <History className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="truncate">Histórico</span>
               </button>
             )}
             <button
@@ -293,26 +450,26 @@ export default function SupervisorDashboard() {
                 setViewMode('solicitudes');
                 setSelectedRescatista(null);
               }}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:px-4 sm:text-base ${
                 viewMode === 'solicitudes'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
-              <Briefcase className="h-5 w-5" />
-              Solicitudes
+              <Briefcase className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="truncate">Solicitudes</span>
             </button>
           </div>
 
           {/* Vista: Documentos Pendientes */}
           {viewMode === 'pending' && (
             <div>
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   Cuentas de Cobro Pendientes
                 </h2>
                 <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-                  {pendingDocuments.length} pendientes
+                  {pendingDocuments.length} pendientes · {pendingByEmployee.length} empleados
                 </span>
               </div>
 
@@ -328,65 +485,81 @@ export default function SupervisorDashboard() {
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {pendingDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="rounded-xl bg-white p-6 shadow-lg dark:bg-gray-800"
+                <div className="space-y-6">
+                  {pendingByEmployee.map(({ userId, name, docs }) => (
+                    <section
+                      key={userId}
+                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
                     >
-                      <div className="mb-4 flex items-start justify-between">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4 dark:border-gray-700">
                         <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white">
-                            {doc.type === 'cuenta_cobro' ? 'Cuenta de Cobro' : 'Incapacidad'}
-                          </h3>
-                                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{name}</h3>
+                          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            {docs.length} documento{docs.length === 1 ? '' : 's'} pendiente{docs.length === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                          Empleado
+                        </span>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {docs.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40 sm:p-5"
+                          >
+                            <div className="mb-4 flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h4 className="font-semibold text-gray-900 dark:text-white">
+                                  {doc.type === 'cuenta_cobro' ? 'Cuenta de Cobro' : 'Incapacidad'}
+                                </h4>
+                                <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400">
                                   {doc.fileName}
                                 </p>
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                                  Usuario: {userNamesMap[doc.userId] || doc.userId.substring(0, 8) + '...'}
-                                </p>
-                        </div>
-                        <StatusBadge status={doc.status} />
-                      </div>
+                              </div>
+                              <StatusBadge status={doc.status} />
+                            </div>
 
-                      <div className="mb-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <p>
-                          <strong>Fecha:</strong>{' '}
-                          {new Date(doc.createdAt).toLocaleDateString('es-ES')}
-                        </p>
-                      </div>
+                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Fecha:</strong>{' '}
+                              {new Date(doc.createdAt).toLocaleDateString('es-ES')}
+                            </p>
 
-                      <div className="flex flex-col gap-2">
-                        <Link
-                          href={doc.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Ver Documento
-                        </Link>
+                            <div className="flex flex-col gap-2">
+                              <Link
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+                              >
+                                <Eye className="h-4 w-4" />
+                                Ver Documento
+                              </Link>
 
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApprove(doc)}
-                            disabled={processing}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Aprobar
-                          </button>
-                          <button
-                            onClick={() => openRejectModal(doc)}
-                            disabled={processing}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Rechazar
-                          </button>
-                        </div>
+                              <div className="flex flex-col gap-2 sm:flex-row">
+                                <button
+                                  onClick={() => handleApprove(doc)}
+                                  disabled={processing}
+                                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  Aprobar
+                                </button>
+                                <button
+                                  onClick={() => openRejectModal(doc)}
+                                  disabled={processing}
+                                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  Rechazar
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    </section>
                   ))}
                 </div>
               )}
@@ -395,24 +568,26 @@ export default function SupervisorDashboard() {
 
           {/* Vista: Lista de Rescatistas */}
           {viewMode === 'rescatistas' && (
-            <div>
-              <div className="mb-4 flex items-center justify-between">
+            <div className="space-y-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   Rescatistas
                 </h2>
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                  {rescatistasFiltrados.length} en total
+                </span>
               </div>
 
-              {/* Filtro de búsqueda */}
               {!loading && rescatistas.length > 0 && (
-                <div className="mb-4">
+                <div>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       type="text"
-                      placeholder="Buscar por nombre o correo..."
+                      placeholder="Buscar por nombre, correo, cédula o novedad..."
                       value={filtroRescatistas}
                       onChange={(e) => setFiltroRescatistas(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                      className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                     />
                   </div>
                 </div>
@@ -429,118 +604,34 @@ export default function SupervisorDashboard() {
                     No hay rescatistas registrados
                   </p>
                 </div>
+              ) : rescatistasFiltrados.length === 0 ? (
+                <div className="rounded-xl bg-white p-12 text-center shadow-lg dark:bg-gray-800">
+                  <Search className="mx-auto h-12 w-12 text-gray-400" />
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">
+                    No se encontraron rescatistas que coincidan con &quot;{filtroRescatistas}&quot;
+                  </p>
+                </div>
               ) : (
-                <div className="rounded-xl bg-white shadow-lg dark:bg-gray-800">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Rescatista
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Contacto
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Cédula
-                          </th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Estado
-                          </th>
-                          <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Documentos
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Acción
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
-                        {rescatistasFiltrados.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                              {filtroRescatistas.trim() 
-                                ? `No se encontraron rescatistas que coincidan con "${filtroRescatistas}"`
-                                : 'No hay rescatistas registrados'}
-                            </td>
-                          </tr>
-                        ) : (
-                          rescatistasFiltrados.map((rescatista) => (
-                            <tr
-                              key={rescatista.uid}
-                              className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                            >
-                              <td className="whitespace-nowrap px-6 py-4">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                  {rescatista.nombre || 'Sin nombre'}
-                                </div>
-                              </td>
-                              <td className="whitespace-nowrap px-6 py-4">
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
-                                  {rescatista.correo}
-                                </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-500">
-                                  {rescatista.telefono || 'Sin teléfono'}
-                                </div>
-                              </td>
-                              <td className="whitespace-nowrap px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-gray-900 dark:text-white">
-                                    {rescatista.cedula || 'Sin cédula'}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => openCedulaModal(rescatista)}
-                                    disabled={processing}
-                                    className="rounded-lg bg-gray-100 p-1.5 text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
-                                    title="Editar cédula"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </td>
-                              <td className="whitespace-nowrap px-6 py-4 text-center">
-                                <span
-                                  className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                                    rescatista.status === 'Activo'
-                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                      : rescatista.status === 'Inactivo'
-                                        ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                  }`}
-                                >
-                                  {rescatista.status}
-                                </span>
-                              </td>
-                              <td className="whitespace-nowrap px-6 py-4 text-center">
-                                {rescatista.pendingCount > 0 ? (
-                                  <span className="inline-flex items-center justify-center rounded-full bg-red-500 px-2.5 py-1 text-xs font-bold text-white">
-                                    NEW
-                                  </span>
-                                ) : rescatista.documentCount > 0 ? (
-                                  <span className="inline-flex items-center justify-center rounded-full bg-blue-500 px-2.5 py-1 text-xs font-medium text-white">
-                                    {rescatista.documentCount}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-gray-400 dark:text-gray-600">
-                                    -
-                                  </span>
-                                )}
-                              </td>
-                              <td className="whitespace-nowrap px-6 py-4 text-right">
-                                <button
-                                  onClick={() => handleRescatistaSelect(rescatista.uid)}
-                                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                                >
-                                  Ver Histórico
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="space-y-10">
+                  {renderRescatistaSection(
+                    'Rescatistas activos',
+                    rescatistasActivos,
+                    'No hay rescatistas activos con los filtros actuales.',
+                    'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                  )}
+                  {renderRescatistaSection(
+                    'Rescatistas inactivos',
+                    rescatistasInactivos,
+                    'No hay rescatistas inactivos con los filtros actuales.',
+                    'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                  )}
+                  {rescatistasSinEstado.length > 0 &&
+                    renderRescatistaSection(
+                      'Sin estado definido',
+                      rescatistasSinEstado,
+                      'No hay rescatistas sin estado.',
+                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                    )}
                 </div>
               )}
             </div>
@@ -871,37 +962,53 @@ export default function SupervisorDashboard() {
           )}
 
           {/* Modal de edición de cédula */}
-          {showCedulaModal && selectedRescatistaForCedula && (
+          {showEditRescatistaModal && selectedRescatistaForEdit && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+              <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-2xl dark:bg-gray-800">
                 <div className="mb-4 flex items-center gap-3">
                   <IdCard className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Editar Cédula
+                    Editar datos del rescatista
                   </h2>
                 </div>
                 <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                  Rescatista: <span className="font-medium">{selectedRescatistaForCedula.nombre}</span>
+                  Rescatista: <span className="font-medium">{selectedRescatistaForEdit.nombre}</span>
                 </p>
-                <div className="mb-4">
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Cédula
-                  </label>
-                  <input
-                    type="text"
-                    value={cedulaValue}
-                    onChange={(e) => setCedulaValue(e.target.value)}
-                    placeholder="Ingrese la cédula del rescatista"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Cédula
+                    </label>
+                    <input
+                      type="text"
+                      value={cedulaValue}
+                      onChange={(e) => setCedulaValue(e.target.value)}
+                      placeholder="Ingrese la cédula del rescatista"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <StickyNote className="h-4 w-4" />
+                      Novedad
+                    </label>
+                    <textarea
+                      value={novedadValue}
+                      onChange={(e) => setNovedadValue(e.target.value)}
+                      placeholder="Registre novedades, observaciones o comentarios del rescatista"
+                      rows={4}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                    />
+                  </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
                     onClick={() => {
-                      setShowCedulaModal(false);
+                      setShowEditRescatistaModal(false);
                       setCedulaValue('');
-                      setSelectedRescatistaForCedula(null);
+                      setNovedadValue('');
+                      setSelectedRescatistaForEdit(null);
                     }}
                     className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                   >
@@ -909,11 +1016,11 @@ export default function SupervisorDashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleSaveCedula}
-                    disabled={!cedulaValue.trim() || processing}
+                    onClick={handleSaveRescatistaData}
+                    disabled={processing}
                     className="flex-1 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
                   >
-                    {processing ? 'Guardando...' : 'Guardar'}
+                    {processing ? 'Guardando...' : 'Guardar cambios'}
                   </button>
                 </div>
               </div>

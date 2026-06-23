@@ -17,6 +17,8 @@ export interface User {
   eps?: string;
   certificado?: string;
   nota?: string;
+  cedula?: string;
+  novedad?: string;
   fcmToken?: string;
   fecha_creacion?: Date;
   createdAt?: Date;

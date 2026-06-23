@@ -401,6 +401,7 @@ export const getAllRescatistas = async () => {
         certificado: (data.certificado as string) || '',
         nota: (data.nota as string) || '',
         cedula: (data.cedula as string) || '',
+        novedad: (data.novedad as string) || '',
       };
     };
 
@@ -434,38 +435,46 @@ export const getAllRescatistas = async () => {
   }
 };
 
-// Actualizar la cédula de un usuario
-export const updateUserCedula = async (userId: string, cedula: string): Promise<void> => {
+// Actualizar datos editables del rescatista por el supervisor
+export const updateUserSupervisorData = async (
+  userId: string,
+  data: { cedula?: string; novedad?: string }
+): Promise<void> => {
   if (!db) throw new Error('Firebase no está inicializado');
-  
+
+  const updatePayload: Record<string, string> = {};
+  if (data.cedula !== undefined) updatePayload.cedula = data.cedula.trim();
+  if (data.novedad !== undefined) updatePayload.novedad = data.novedad.trim();
+
+  if (Object.keys(updatePayload).length === 0) {
+    throw new Error('No hay datos para actualizar');
+  }
+
   try {
-    // Buscar el documento del usuario por uid
-    const usersQuery = query(
-      collection(db, 'usuarios'),
-      where('uid', '==', userId)
-    );
+    const usersQuery = query(collection(db, 'usuarios'), where('uid', '==', userId));
     const querySnapshot = await getDocs(usersQuery);
-    
+
     if (querySnapshot.empty) {
-      // Si no se encuentra por query, intentar por ID del documento
       const userDocRef = doc(db, 'usuarios', userId);
       const userDoc = await getDoc(userDocRef);
-      
+
       if (userDoc.exists()) {
-        await updateDoc(userDocRef, { cedula: cedula.trim() });
-        console.log('✅ Cédula actualizada por ID del documento');
+        await updateDoc(userDocRef, updatePayload);
         return;
       }
-      
+
       throw new Error('Usuario no encontrado');
     }
-    
-    // Actualizar el primer documento encontrado
-    const userDocRef = querySnapshot.docs[0].ref;
-    await updateDoc(userDocRef, { cedula: cedula.trim() });
-    console.log('✅ Cédula actualizada exitosamente');
-  } catch (error: any) {
-    console.error('Error actualizando cédula:', error);
-    throw new Error(error.message || 'Error al actualizar la cédula');
+
+    await updateDoc(querySnapshot.docs[0].ref, updatePayload);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Error al actualizar los datos del rescatista';
+    console.error('Error actualizando datos del rescatista:', error);
+    throw new Error(message);
   }
+};
+
+// Mantener compatibilidad con llamadas existentes
+export const updateUserCedula = async (userId: string, cedula: string): Promise<void> => {
+  await updateUserSupervisorData(userId, { cedula });
 };
