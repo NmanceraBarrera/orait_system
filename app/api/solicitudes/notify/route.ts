@@ -40,7 +40,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error enviando notificación de candidato:', error);
+    const message = error instanceof Error ? error.message : 'Error desconocido';
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code: unknown }).code)
+        : undefined;
+
+    console.error('Error enviando notificación de candidato:', { message, code, error });
+
     return NextResponse.json(
       { error: 'No se pudo enviar la notificación por correo' },
       { status: 500 }

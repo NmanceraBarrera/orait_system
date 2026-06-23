@@ -1,6 +1,8 @@
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 const DEFAULT_NOTIFY_EMAIL = 'oraitsas600horas@gmail.com';
+const DEFAULT_FROM = 'ORAIT S.A.S. <onboarding@resend.dev>';
 
 export interface CandidateNotificationData {
   nombre: string;
@@ -114,35 +116,75 @@ const buildHtml = (data: CandidateNotificationData, fecha: string) => `
 </html>
 `;
 
-export const sendCandidateNotification = async (
-  data: CandidateNotificationData
-): Promise<void> => {
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
+const getNotifyTo = () => (process.env.NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL).trim();
+
+const buildMailContent = (data: CandidateNotificationData) => {
+  const fecha = formatDate(new Date());
+  return {
+    subject: `Nueva solicitud de candidato – ${data.nombre}`,
+    text: buildPlainText(data, fecha),
+    html: buildHtml(data, fecha),
+  };
+};
+
+const sendViaResend = async (data: CandidateNotificationData): Promise<void> => {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY no configurada');
+  }
+
+  const resend = new Resend(apiKey);
+  const { subject, html, text } = buildMailContent(data);
+  const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
+
+  const { error } = await resend.emails.send({
+    from,
+    to: [getNotifyTo()],
+    subject,
+    html,
+    text,
+  });
+
+  if (error) {
+    throw new Error(`Resend: ${error.message}`);
+  }
+};
+
+const sendViaSmtp = async (data: CandidateNotificationData): Promise<void> => {
+  const smtpUser = process.env.SMTP_USER?.trim();
+  const smtpPass = process.env.SMTP_PASS?.trim().replace(/\s/g, '');
 
   if (!smtpUser || !smtpPass) {
     throw new Error('Credenciales SMTP no configuradas (SMTP_USER / SMTP_PASS)');
   }
 
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === 'true',
+    service: 'gmail',
     auth: {
       user: smtpUser,
       pass: smtpPass,
     },
   });
 
-  const fecha = formatDate(new Date());
-  const notifyTo = process.env.NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL;
-  const fromAddress = process.env.SMTP_FROM || smtpUser;
+  const { subject, html, text } = buildMailContent(data);
+  const fromAddress = process.env.SMTP_FROM?.trim() || smtpUser;
 
   await transporter.sendMail({
     from: `"ORAIT S.A.S." <${fromAddress}>`,
-    to: notifyTo,
-    subject: `Nueva solicitud de candidato – ${data.nombre}`,
-    text: buildPlainText(data, fecha),
-    html: buildHtml(data, fecha),
+    to: getNotifyTo(),
+    subject,
+    text,
+    html,
   });
+};
+
+export const sendCandidateNotification = async (
+  data: CandidateNotificationData
+): Promise<void> => {
+  if (process.env.RESEND_API_KEY?.trim()) {
+    await sendViaResend(data);
+    return;
+  }
+
+  await sendViaSmtp(data);
 };
