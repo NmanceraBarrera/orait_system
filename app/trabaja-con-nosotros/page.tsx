@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createSolicitud } from '@/lib/firebase/solicitudes';
+import { notifyNewCandidate } from '@/lib/email/notifyNewCandidate';
 import FileUpload from '@/components/ui/FileUpload';
 import toast from 'react-hot-toast';
 import { Upload, FileText, User, Briefcase, CheckCircle, Phone } from 'lucide-react';
@@ -40,7 +41,7 @@ export default function TrabajaConNosotrosPage() {
 
     setLoading(true);
     try {
-      await createSolicitud({
+      const solicitudId = await createSolicitud({
         nombre: nombre.trim(),
         telefono: telefono.trim() || undefined,
         hojaVida: files.hojaVida || undefined,
@@ -51,6 +52,12 @@ export default function TrabajaConNosotrosPage() {
         rut: files.rut || undefined,
         certificadoAntecedentes: files.certificadoAntecedentes || undefined,
         certificadoBancario: files.certificadoBancario || undefined,
+      });
+
+      await notifyNewCandidate({
+        nombre: nombre.trim(),
+        telefono: telefono.trim() || undefined,
+        solicitudId,
       });
 
       toast.success('¡Solicitud enviada exitosamente! Nos pondremos en contacto contigo pronto.');
