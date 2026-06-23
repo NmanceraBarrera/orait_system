@@ -12,6 +12,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from './config';
 import { Solicitud, SolicitudFormData } from '@/lib/types';
+import { SOLICITUD_DOCUMENT_FIELDS } from '@/lib/constants/solicitudDocuments';
 
 const SOLICITUDES_COLLECTION = 'solicitudes';
 
@@ -79,54 +80,17 @@ export const createSolicitud = async (formData: SolicitudFormData): Promise<stri
     };
 
     // Subir archivos si existen
-    if (formData.rut) {
-      const rutPath = `solicitudes/${timestamp}/rut_${formData.rut.name}`;
-      const rutData = await uploadFile(formData.rut, rutPath);
-      solicitudData.rut = {
-        fileName: formData.rut.name,
-        fileUrl: rutData.fileUrl,
-        storagePath: rutData.storagePath,
-      };
-    }
-
-    if (formData.fotocopiaCC) {
-      const ccPath = `solicitudes/${timestamp}/fotocopia_cc_${formData.fotocopiaCC.name}`;
-      const ccData = await uploadFile(formData.fotocopiaCC, ccPath);
-      solicitudData.fotocopiaCC = {
-        fileName: formData.fotocopiaCC.name,
-        fileUrl: ccData.fileUrl,
-        storagePath: ccData.storagePath,
-      };
-    }
-
-    if (formData.hojaVida) {
-      const hvPath = `solicitudes/${timestamp}/hoja_vida_${formData.hojaVida.name}`;
-      const hvData = await uploadFile(formData.hojaVida, hvPath);
-      solicitudData.hojaVida = {
-        fileName: formData.hojaVida.name,
-        fileUrl: hvData.fileUrl,
-        storagePath: hvData.storagePath,
-      };
-    }
-
-    if (formData.certificacionSalvavidas) {
-      const certSalvPath = `solicitudes/${timestamp}/certificacion_salvavidas_${formData.certificacionSalvavidas.name}`;
-      const certSalvData = await uploadFile(formData.certificacionSalvavidas, certSalvPath);
-      solicitudData.certificacionSalvavidas = {
-        fileName: formData.certificacionSalvavidas.name,
-        fileUrl: certSalvData.fileUrl,
-        storagePath: certSalvData.storagePath,
-      };
-    }
-
-    if (formData.certificacionEPS) {
-      const certEPSPath = `solicitudes/${timestamp}/certificacion_eps_${formData.certificacionEPS.name}`;
-      const certEPSData = await uploadFile(formData.certificacionEPS, certEPSPath);
-      solicitudData.certificacionEPS = {
-        fileName: formData.certificacionEPS.name,
-        fileUrl: certEPSData.fileUrl,
-        storagePath: certEPSData.storagePath,
-      };
+    for (const { key, storagePrefix } of SOLICITUD_DOCUMENT_FIELDS) {
+      const file = formData[key];
+      if (file) {
+        const filePath = `solicitudes/${timestamp}/${storagePrefix}_${file.name}`;
+        const uploaded = await uploadFile(file, filePath);
+        solicitudData[key] = {
+          fileName: file.name,
+          fileUrl: uploaded.fileUrl,
+          storagePath: uploaded.storagePath,
+        };
+      }
     }
 
     // Guardar en Firestore
@@ -169,11 +133,14 @@ export const getAllSolicitudes = async (): Promise<Solicitud[]> => {
         id: docSnapshot.id,
         nombre: data.nombre || '',
         telefono: data.telefono || undefined,
-        rut: data.rut || undefined,
-        fotocopiaCC: data.fotocopiaCC || undefined,
         hojaVida: data.hojaVida || undefined,
         certificacionSalvavidas: data.certificacionSalvavidas || undefined,
+        certificacionPrimerosAuxilios: data.certificacionPrimerosAuxilios || undefined,
         certificacionEPS: data.certificacionEPS || undefined,
+        fotocopiaCC: data.fotocopiaCC || undefined,
+        rut: data.rut || undefined,
+        certificadoAntecedentes: data.certificadoAntecedentes || undefined,
+        certificadoBancario: data.certificadoBancario || undefined,
         createdAt: data.createdAt?.toDate() || new Date(),
         status: data.status || 'pendiente',
         motivoValidacion: data.motivoValidacion || undefined,

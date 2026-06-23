@@ -5,73 +5,68 @@ import { createSolicitud } from '@/lib/firebase/solicitudes';
 import FileUpload from '@/components/ui/FileUpload';
 import toast from 'react-hot-toast';
 import { Upload, FileText, User, Briefcase, CheckCircle, Phone } from 'lucide-react';
+import {
+  SOLICITUD_DOCUMENT_FIELDS,
+  SolicitudDocumentField,
+} from '@/lib/constants/solicitudDocuments';
+
+const initialFiles = Object.fromEntries(
+  SOLICITUD_DOCUMENT_FIELDS.map(({ key }) => [key, null])
+) as Record<SolicitudDocumentField, File | null>;
 
 export default function TrabajaConNosotrosPage() {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    nombre: '',
-    telefono: '',
-    rut: null as File | null,
-    fotocopiaCC: null as File | null,
-    hojaVida: null as File | null,
-    certificacionSalvavidas: null as File | null,
-    certificacionEPS: null as File | null,
-  });
+  const [nombre, setNombre] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [files, setFiles] = useState(initialFiles);
 
-  const handleFileSelect = (field: string) => (file: File | null) => {
-    setFormData((prev) => ({ ...prev, [field]: file }));
+  const handleFileSelect = (field: SolicitudDocumentField) => (file: File | null) => {
+    setFiles((prev) => ({ ...prev, [field]: file }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.nombre.trim()) {
+
+    if (!nombre.trim()) {
       toast.error('El nombre es obligatorio');
       return;
     }
 
-    // Validar que al menos haya un archivo
-    const hasFiles = formData.rut || formData.fotocopiaCC || formData.hojaVida || 
-                     formData.certificacionSalvavidas || formData.certificacionEPS;
-    
-    if (!hasFiles) {
-      toast.error('Debes subir al menos un documento');
+    const missingDocument = SOLICITUD_DOCUMENT_FIELDS.find(({ key, label }) => !files[key]);
+    if (missingDocument) {
+      toast.error(`Debes subir: ${missingDocument.label}`);
       return;
     }
 
     setLoading(true);
     try {
       await createSolicitud({
-        nombre: formData.nombre.trim(),
-        telefono: formData.telefono.trim() || undefined,
-        rut: formData.rut || undefined,
-        fotocopiaCC: formData.fotocopiaCC || undefined,
-        hojaVida: formData.hojaVida || undefined,
-        certificacionSalvavidas: formData.certificacionSalvavidas || undefined,
-        certificacionEPS: formData.certificacionEPS || undefined,
+        nombre: nombre.trim(),
+        telefono: telefono.trim() || undefined,
+        hojaVida: files.hojaVida || undefined,
+        certificacionSalvavidas: files.certificacionSalvavidas || undefined,
+        certificacionPrimerosAuxilios: files.certificacionPrimerosAuxilios || undefined,
+        certificacionEPS: files.certificacionEPS || undefined,
+        fotocopiaCC: files.fotocopiaCC || undefined,
+        rut: files.rut || undefined,
+        certificadoAntecedentes: files.certificadoAntecedentes || undefined,
+        certificadoBancario: files.certificadoBancario || undefined,
       });
 
       toast.success('¡Solicitud enviada exitosamente! Nos pondremos en contacto contigo pronto.');
-      
-      // Resetear formulario
-      setFormData({
-        nombre: '',
-        telefono: '',
-        rut: null,
-        fotocopiaCC: null,
-        hojaVida: null,
-        certificacionSalvavidas: null,
-        certificacionEPS: null,
-      });
-      
-      // Resetear inputs de archivo
+
+      setNombre('');
+      setTelefono('');
+      setFiles(initialFiles);
+
       const fileInputs = document.querySelectorAll('input[type="file"]');
       fileInputs.forEach((input) => {
         (input as HTMLInputElement).value = '';
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error enviando solicitud:', error);
-      toast.error(error.message || 'Error al enviar la solicitud. Por favor, intenta nuevamente.');
+      const message = error instanceof Error ? error.message : 'Error al enviar la solicitud. Por favor, intenta nuevamente.';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -81,7 +76,6 @@ export default function TrabajaConNosotrosPage() {
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl">
-          {/* Header */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
               <Briefcase className="h-8 w-8 text-blue-600 dark:text-blue-400" />
@@ -90,14 +84,12 @@ export default function TrabajaConNosotrosPage() {
               Presta servicios con Nosotros
             </h1>
             <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
-              Únete a nuestro equipo de salvavidas profesionales. Envía tu solicitud con los documentos requeridos.
+              Únete a nuestro equipo de salvavidas profesionales. Envía tu solicitud con los 8 documentos requeridos.
             </p>
           </div>
 
-          {/* Formulario */}
           <div className="rounded-xl bg-white p-8 shadow-lg dark:bg-gray-800">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Nombre */}
               <div>
                 <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <User className="h-4 w-4" />
@@ -105,15 +97,14 @@ export default function TrabajaConNosotrosPage() {
                 </label>
                 <input
                   type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, nombre: e.target.value }))}
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
                   required
                   className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   placeholder="Ingresa tu nombre completo"
                 />
               </div>
 
-              {/* Teléfono de Contacto */}
               <div>
                 <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <Phone className="h-4 w-4" />
@@ -121,8 +112,8 @@ export default function TrabajaConNosotrosPage() {
                 </label>
                 <input
                   type="tel"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, telefono: e.target.value }))}
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
                   className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   placeholder="Ej: 3001234567"
                 />
@@ -131,77 +122,32 @@ export default function TrabajaConNosotrosPage() {
                 </p>
               </div>
 
-              {/* RUT */}
-              <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <FileText className="h-4 w-4" />
-                  RUT
-                </label>
-                <FileUpload
-                  onFileSelect={handleFileSelect('rut')}
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  label="Subir RUT (PDF o Imagen)"
-                  disabled={loading}
-                />
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+                  Documentos requeridos
+                </h2>
+                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-blue-800 dark:text-blue-400">
+                  {SOLICITUD_DOCUMENT_FIELDS.map(({ label }) => (
+                    <li key={label}>{label}</li>
+                  ))}
+                </ol>
               </div>
 
-              {/* Fotocopia CC */}
-              <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <FileText className="h-4 w-4" />
-                  Fotocopia Cédula de Ciudadanía
-                </label>
-                <FileUpload
-                  onFileSelect={handleFileSelect('fotocopiaCC')}
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  label="Subir Fotocopia CC (PDF o Imagen)"
-                  disabled={loading}
-                />
-              </div>
+              {SOLICITUD_DOCUMENT_FIELDS.map(({ key, label, uploadLabel, accept }, index) => (
+                <div key={key}>
+                  <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <FileText className="h-4 w-4" />
+                    {index + 1}. {label} <span className="text-red-500">*</span>
+                  </label>
+                  <FileUpload
+                    onFileSelect={handleFileSelect(key)}
+                    accept={accept}
+                    label={uploadLabel}
+                    disabled={loading}
+                  />
+                </div>
+              ))}
 
-              {/* Hoja de Vida */}
-              <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <FileText className="h-4 w-4" />
-                  Hoja de Vida
-                </label>
-                <FileUpload
-                  onFileSelect={handleFileSelect('hojaVida')}
-                  accept=".pdf,.doc,.docx"
-                  label="Subir Hoja de Vida (PDF o Word)"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Certificación de Salvavidas */}
-              <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <FileText className="h-4 w-4" />
-                  Certificación de Salvavidas
-                </label>
-                <FileUpload
-                  onFileSelect={handleFileSelect('certificacionSalvavidas')}
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  label="Subir Certificación de Salvavidas (PDF o Imagen)"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Certificación EPS */}
-              <div>
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <FileText className="h-4 w-4" />
-                  Certificación EPS
-                </label>
-                <FileUpload
-                  onFileSelect={handleFileSelect('certificacionEPS')}
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  label="Subir Certificación EPS (PDF o Imagen)"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Botón de envío */}
               <button
                 type="submit"
                 disabled={loading}
@@ -222,7 +168,6 @@ export default function TrabajaConNosotrosPage() {
             </form>
           </div>
 
-          {/* Información adicional */}
           <div className="mt-8 rounded-xl bg-blue-50 p-6 dark:bg-blue-900/20">
             <div className="flex items-start gap-3">
               <CheckCircle className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
@@ -231,9 +176,8 @@ export default function TrabajaConNosotrosPage() {
                   Información Importante
                 </h3>
                 <p className="mt-2 text-sm text-blue-800 dark:text-blue-400">
-                  Una vez que envíes tu solicitud, nuestro equipo de supervisores la revisará. 
-                  Te contactaremos a través del correo electrónico proporcionado si tu perfil 
-                  coincide con nuestras necesidades.
+                  Una vez que envíes tu solicitud con los 8 documentos, nuestro equipo de supervisores la revisará.
+                  Te contactaremos si tu perfil coincide con nuestras necesidades.
                 </p>
               </div>
             </div>

@@ -12,6 +12,7 @@ import {
 } from '@/lib/firebase/documents';
 import { getAllRescatistas, updateUserCedula } from '@/lib/firebase/auth';
 import { getAllSolicitudes, validarSolicitud } from '@/lib/firebase/solicitudes';
+import { SOLICITUD_DOCUMENT_FIELDS } from '@/lib/constants/solicitudDocuments';
 import { Document, DocumentType, Solicitud } from '@/lib/types';
 import StatusBadge from '@/components/ui/StatusBadge';
 import toast from 'react-hot-toast';
@@ -705,61 +706,25 @@ export default function SupervisorDashboard() {
                       )}
 
                       <div className="mb-4 space-y-2">
-                        {solicitud.rut && (
-                          <Link
-                            href={solicitud.rut.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                          >
-                            <Download className="h-4 w-4 flex-shrink-0" />
-                            <span className="min-w-0 truncate">RUT: {solicitud.rut.fileName}</span>
-                          </Link>
-                        )}
-                        {solicitud.fotocopiaCC && (
-                          <Link
-                            href={solicitud.fotocopiaCC.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                          >
-                            <Download className="h-4 w-4 flex-shrink-0" />
-                            <span className="min-w-0 truncate">Fotocopia CC: {solicitud.fotocopiaCC.fileName}</span>
-                          </Link>
-                        )}
-                        {solicitud.hojaVida && (
-                          <Link
-                            href={solicitud.hojaVida.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                          >
-                            <Download className="h-4 w-4 flex-shrink-0" />
-                            <span className="min-w-0 truncate">Hoja de Vida: {solicitud.hojaVida.fileName}</span>
-                          </Link>
-                        )}
-                        {solicitud.certificacionSalvavidas && (
-                          <Link
-                            href={solicitud.certificacionSalvavidas.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                          >
-                            <Download className="h-4 w-4 flex-shrink-0" />
-                            <span className="min-w-0 truncate">Cert. Salvavidas: {solicitud.certificacionSalvavidas.fileName}</span>
-                          </Link>
-                        )}
-                        {solicitud.certificacionEPS && (
-                          <Link
-                            href={solicitud.certificacionEPS.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                          >
-                            <Download className="h-4 w-4 flex-shrink-0" />
-                            <span className="min-w-0 truncate">Cert. EPS: {solicitud.certificacionEPS.fileName}</span>
-                          </Link>
-                        )}
+                        {SOLICITUD_DOCUMENT_FIELDS.map(({ key, label }) => {
+                          const documento = solicitud[key];
+                          if (!documento) return null;
+
+                          return (
+                            <Link
+                              key={key}
+                              href={documento.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex min-w-0 items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                              <Download className="h-4 w-4 flex-shrink-0" />
+                              <span className="min-w-0 truncate">
+                                {label}: {documento.fileName}
+                              </span>
+                            </Link>
+                          );
+                        })}
                       </div>
 
                       {/* Botones de validación - solo si está pendiente */}

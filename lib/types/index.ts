@@ -43,35 +43,24 @@ export interface DocumentFormData {
   file: File;
 }
 
+export interface SolicitudFile {
+  fileName: string;
+  fileUrl: string;
+  storagePath: string;
+}
+
 export interface Solicitud {
   id: string;
   nombre: string;
   telefono?: string;
-  rut?: {
-    fileName: string;
-    fileUrl: string;
-    storagePath: string;
-  };
-  fotocopiaCC?: {
-    fileName: string;
-    fileUrl: string;
-    storagePath: string;
-  };
-  hojaVida?: {
-    fileName: string;
-    fileUrl: string;
-    storagePath: string;
-  };
-  certificacionSalvavidas?: {
-    fileName: string;
-    fileUrl: string;
-    storagePath: string;
-  };
-  certificacionEPS?: {
-    fileName: string;
-    fileUrl: string;
-    storagePath: string;
-  };
+  hojaVida?: SolicitudFile;
+  certificacionSalvavidas?: SolicitudFile;
+  certificacionPrimerosAuxilios?: SolicitudFile;
+  certificacionEPS?: SolicitudFile;
+  fotocopiaCC?: SolicitudFile;
+  rut?: SolicitudFile;
+  certificadoAntecedentes?: SolicitudFile;
+  certificadoBancario?: SolicitudFile;
   createdAt: Date;
   status?: 'pendiente' | 'revisada' | 'aprobada' | 'rechazada';
   motivoValidacion?: string;
@@ -82,9 +71,12 @@ export interface Solicitud {
 export interface SolicitudFormData {
   nombre: string;
   telefono?: string;
-  rut?: File;
-  fotocopiaCC?: File;
   hojaVida?: File;
   certificacionSalvavidas?: File;
+  certificacionPrimerosAuxilios?: File;
   certificacionEPS?: File;
+  fotocopiaCC?: File;
+  rut?: File;
+  certificadoAntecedentes?: File;
+  certificadoBancario?: File;
 }
