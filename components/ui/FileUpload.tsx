@@ -10,6 +10,35 @@ interface FileUploadProps {
   disabled?: boolean;
 }
 
+const MIME_BY_EXTENSION: Record<string, string[]> = {
+  '.pdf': ['application/pdf'],
+  '.jpg': ['image/jpeg', 'image/jpg'],
+  '.jpeg': ['image/jpeg', 'image/jpg'],
+  '.png': ['image/png'],
+  '.doc': ['application/msword'],
+  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+};
+
+const getValidTypes = (accept: string): string[] => {
+  const extensions = accept.split(',').map((ext) => ext.trim().toLowerCase());
+  const types = new Set<string>();
+
+  extensions.forEach((ext) => {
+    MIME_BY_EXTENSION[ext]?.forEach((type) => types.add(type));
+  });
+
+  return Array.from(types);
+};
+
+const getAcceptedFormatsLabel = (accept: string): string => {
+  const extensions = accept
+    .split(',')
+    .map((ext) => ext.trim().replace('.', '').toUpperCase())
+    .filter(Boolean);
+
+  return extensions.join(', ');
+};
+
 export default function FileUpload({
   onFileSelect,
   accept = '.pdf,.jpg,.jpeg,.png',
@@ -18,26 +47,25 @@ export default function FileUpload({
 }: FileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const validTypes = getValidTypes(accept);
+  const acceptedFormatsLabel = getAcceptedFormatsLabel(accept);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validar tamaño del archivo (máximo 10MB)
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
         alert('El archivo es demasiado grande. Máximo 10MB');
-        e.target.value = ''; // Limpiar el input
+        e.target.value = '';
         return;
       }
-      
-      // Validar tipo de archivo
-      const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+
       if (!validTypes.includes(file.type)) {
-        alert('Tipo de archivo no válido. Solo se permiten PDF, JPG y PNG');
-        e.target.value = ''; // Limpiar el input
+        alert(`Tipo de archivo no válido. Solo se permiten: ${acceptedFormatsLabel}`);
+        e.target.value = '';
         return;
       }
-      
+
       setSelectedFile(file);
       onFileSelect(file);
     }
@@ -90,7 +118,7 @@ export default function FileUpload({
         )}
       </div>
       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        Formatos aceptados: PDF, JPG, PNG (máx. 10MB)
+        Formatos aceptados: {acceptedFormatsLabel} (máx. 10MB)
       </p>
     </div>
   );
