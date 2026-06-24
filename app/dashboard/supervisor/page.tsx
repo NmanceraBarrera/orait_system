@@ -65,6 +65,8 @@ export default function SupervisorDashboard() {
   const [validarAprobada, setValidarAprobada] = useState<boolean | null>(null);
   const [filtroRescatistas, setFiltroRescatistas] = useState('');
   const [rescatistaStatusTab, setRescatistaStatusTab] = useState<RescatistaStatusTab>('activos');
+  const [selectedPendingEmployeeId, setSelectedPendingEmployeeId] = useState<string | null>(null);
+  const [filtroPendientes, setFiltroPendientes] = useState('');
   const [showEditRescatistaModal, setShowEditRescatistaModal] = useState(false);
   const [selectedRescatistaForEdit, setSelectedRescatistaForEdit] = useState<RescatistaItem | null>(null);
   const [cedulaValue, setCedulaValue] = useState('');
@@ -330,6 +332,98 @@ export default function SupervisorDashboard() {
       .sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }, [pendingDocuments, userNamesMap]);
 
+  useEffect(() => {
+    if (viewMode !== 'pending') return;
+
+    if (pendingByEmployee.length === 0) {
+      setSelectedPendingEmployeeId(null);
+      return;
+    }
+
+    setSelectedPendingEmployeeId((current) => {
+      if (current && pendingByEmployee.some((employee) => employee.userId === current)) {
+        return current;
+      }
+      return pendingByEmployee[0].userId;
+    });
+  }, [pendingByEmployee, viewMode]);
+
+  const selectedPendingEmployee = useMemo(
+    () => pendingByEmployee.find((employee) => employee.userId === selectedPendingEmployeeId) ?? null,
+    [pendingByEmployee, selectedPendingEmployeeId]
+  );
+
+  const pendingDocsFiltered = useMemo(() => {
+    if (!selectedPendingEmployee) return [];
+
+    if (!filtroPendientes.trim()) {
+      return selectedPendingEmployee.docs;
+    }
+
+    const query = filtroPendientes.toLowerCase().trim();
+    return selectedPendingEmployee.docs.filter((doc) => {
+      const typeLabel = doc.type === 'cuenta_cobro' ? 'cuenta de cobro' : 'incapacidad';
+      const dateLabel = new Date(doc.createdAt).toLocaleDateString('es-ES');
+      return (
+        doc.fileName.toLowerCase().includes(query) ||
+        typeLabel.includes(query) ||
+        dateLabel.includes(query)
+      );
+    });
+  }, [selectedPendingEmployee, filtroPendientes]);
+
+  const renderPendingDocCard = (doc: Document) => (
+    <div
+      key={doc.id}
+      className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40 sm:p-5"
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="font-semibold text-gray-900 dark:text-white">
+            {doc.type === 'cuenta_cobro' ? 'Cuenta de Cobro' : 'Incapacidad'}
+          </h4>
+          <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400">{doc.fileName}</p>
+        </div>
+        <StatusBadge status={doc.status} />
+      </div>
+
+      <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+        <strong>Fecha:</strong> {new Date(doc.createdAt).toLocaleDateString('es-ES')}
+      </p>
+
+      <div className="flex flex-col gap-2">
+        <Link
+          href={doc.fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+        >
+          <Eye className="h-4 w-4" />
+          Ver Documento
+        </Link>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            onClick={() => handleApprove(doc)}
+            disabled={processing}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
+          >
+            <CheckCircle className="h-4 w-4" />
+            Aprobar
+          </button>
+          <button
+            onClick={() => openRejectModal(doc)}
+            disabled={processing}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+          >
+            <XCircle className="h-4 w-4" />
+            Rechazar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderRescatistaCard = (rescatista: RescatistaItem) => (
     <div
       key={rescatista.uid}
@@ -488,82 +582,80 @@ export default function SupervisorDashboard() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {pendingByEmployee.map(({ userId, name, docs }) => (
-                    <section
-                      key={userId}
-                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-                    >
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-white p-2 shadow-lg dark:bg-gray-800">
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {pendingByEmployee.map(({ userId, name, docs }) => (
+                        <button
+                          key={userId}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPendingEmployeeId(userId);
+                            setFiltroPendientes('');
+                          }}
+                          className={`flex min-w-[140px] shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium transition-colors sm:min-w-[180px] sm:text-base ${
+                            selectedPendingEmployeeId === userId
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          <span className="truncate">{name}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              selectedPendingEmployeeId === userId
+                                ? 'bg-white/20 text-white'
+                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                            }`}
+                          >
+                            {docs.length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedPendingEmployee && (
+                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-5">
                       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4 dark:border-gray-700">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{name}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {selectedPendingEmployee.name}
+                          </h3>
                           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {docs.length} documento{docs.length === 1 ? '' : 's'} pendiente{docs.length === 1 ? '' : 's'}
+                            {selectedPendingEmployee.docs.length} documento
+                            {selectedPendingEmployee.docs.length === 1 ? '' : 's'} pendiente
+                            {selectedPendingEmployee.docs.length === 1 ? '' : 's'}
                           </p>
                         </div>
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                          Empleado
+                          Empleado seleccionado
                         </span>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {docs.map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40 sm:p-5"
-                          >
-                            <div className="mb-4 flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <h4 className="font-semibold text-gray-900 dark:text-white">
-                                  {doc.type === 'cuenta_cobro' ? 'Cuenta de Cobro' : 'Incapacidad'}
-                                </h4>
-                                <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400">
-                                  {doc.fileName}
-                                </p>
-                              </div>
-                              <StatusBadge status={doc.status} />
-                            </div>
-
-                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                              <strong>Fecha:</strong>{' '}
-                              {new Date(doc.createdAt).toLocaleDateString('es-ES')}
-                            </p>
-
-                            <div className="flex flex-col gap-2">
-                              <Link
-                                href={doc.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
-                              >
-                                <Eye className="h-4 w-4" />
-                                Ver Documento
-                              </Link>
-
-                              <div className="flex flex-col gap-2 sm:flex-row">
-                                <button
-                                  onClick={() => handleApprove(doc)}
-                                  disabled={processing}
-                                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                  Aprobar
-                                </button>
-                                <button
-                                  onClick={() => openRejectModal(doc)}
-                                  disabled={processing}
-                                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
-                                >
-                                  <XCircle className="h-4 w-4" />
-                                  Rechazar
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Filtrar documentos por nombre, tipo o fecha..."
+                          value={filtroPendientes}
+                          onChange={(e) => setFiltroPendientes(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                        />
                       </div>
-                    </section>
-                  ))}
+
+                      {pendingDocsFiltered.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                          {filtroPendientes.trim()
+                            ? `No se encontraron documentos para "${filtroPendientes}" en este empleado.`
+                            : 'Este empleado no tiene documentos pendientes.'}
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          {pendingDocsFiltered.map(renderPendingDocCard)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
