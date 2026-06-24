@@ -20,6 +20,7 @@ import { CheckCircle, XCircle, Eye, Users, Clock, History, FileText, Briefcase, 
 import Link from 'next/link';
 
 type ViewMode = 'pending' | 'rescatistas' | 'history' | 'solicitudes';
+type RescatistaStatusTab = 'activos' | 'inactivos' | 'sin_estado';
 
 type RescatistaItem = {
   uid: string;
@@ -63,6 +64,7 @@ export default function SupervisorDashboard() {
   const [motivoValidacion, setMotivoValidacion] = useState('');
   const [validarAprobada, setValidarAprobada] = useState<boolean | null>(null);
   const [filtroRescatistas, setFiltroRescatistas] = useState('');
+  const [rescatistaStatusTab, setRescatistaStatusTab] = useState<RescatistaStatusTab>('activos');
   const [showEditRescatistaModal, setShowEditRescatistaModal] = useState(false);
   const [selectedRescatistaForEdit, setSelectedRescatistaForEdit] = useState<RescatistaItem | null>(null);
   const [cedulaValue, setCedulaValue] = useState('');
@@ -282,6 +284,32 @@ export default function SupervisorDashboard() {
     [rescatistasFiltrados]
   );
 
+  const rescatistaTabCounts = useMemo(() => {
+    const lista = (rescatistasWithCounts.length > 0 ? rescatistasWithCounts : rescatistas) as RescatistaItem[];
+    return {
+      activos: lista.filter((rescatista) => rescatista.status === 'Activo').length,
+      inactivos: lista.filter((rescatista) => rescatista.status === 'Inactivo').length,
+      sinEstado: lista.filter(
+        (rescatista) => rescatista.status !== 'Activo' && rescatista.status !== 'Inactivo'
+      ).length,
+    };
+  }, [rescatistas, rescatistasWithCounts]);
+
+  const rescatistasTabActuales = useMemo(() => {
+    if (rescatistaStatusTab === 'activos') return rescatistasActivos;
+    if (rescatistaStatusTab === 'inactivos') return rescatistasInactivos;
+    return rescatistasSinEstado;
+  }, [rescatistaStatusTab, rescatistasActivos, rescatistasInactivos, rescatistasSinEstado]);
+
+  const rescatistaTabEmptyMessage = useMemo(() => {
+    if (filtroRescatistas.trim()) {
+      return `No se encontraron resultados para "${filtroRescatistas}" en esta sección.`;
+    }
+    if (rescatistaStatusTab === 'activos') return 'No hay rescatistas activos registrados.';
+    if (rescatistaStatusTab === 'inactivos') return 'No hay rescatistas inactivos registrados.';
+    return 'No hay rescatistas sin estado definido.';
+  }, [filtroRescatistas, rescatistaStatusTab]);
+
   const pendingByEmployee = useMemo(() => {
     const groups = new Map<string, Document[]>();
 
@@ -362,31 +390,6 @@ export default function SupervisorDashboard() {
         </button>
       </div>
     </div>
-  );
-
-  const renderRescatistaSection = (
-    title: string,
-    items: RescatistaItem[],
-    emptyMessage: string,
-    accentClass: string
-  ) => (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
-        <span className={`rounded-full px-3 py-1 text-sm font-medium ${accentClass}`}>
-          {items.length}
-        </span>
-      </div>
-      {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-          {emptyMessage}
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map(renderRescatistaCard)}
-        </div>
-      )}
-    </section>
   );
 
   return (
@@ -568,30 +571,15 @@ export default function SupervisorDashboard() {
 
           {/* Vista: Lista de Rescatistas */}
           {viewMode === 'rescatistas' && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   Rescatistas
                 </h2>
                 <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                  {rescatistasFiltrados.length} en total
+                  {rescatistasFiltrados.length} resultado{rescatistasFiltrados.length === 1 ? '' : 's'}
                 </span>
               </div>
-
-              {!loading && rescatistas.length > 0 && (
-                <div>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar por nombre, correo, cédula o novedad..."
-                      value={filtroRescatistas}
-                      onChange={(e) => setFiltroRescatistas(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-                    />
-                  </div>
-                </div>
-              )}
 
               {loading ? (
                 <div className="flex items-center justify-center py-12">
@@ -604,34 +592,98 @@ export default function SupervisorDashboard() {
                     No hay rescatistas registrados
                   </p>
                 </div>
-              ) : rescatistasFiltrados.length === 0 ? (
-                <div className="rounded-xl bg-white p-12 text-center shadow-lg dark:bg-gray-800">
-                  <Search className="mx-auto h-12 w-12 text-gray-400" />
-                  <p className="mt-4 text-gray-600 dark:text-gray-400">
-                    No se encontraron rescatistas que coincidan con &quot;{filtroRescatistas}&quot;
-                  </p>
-                </div>
               ) : (
-                <div className="space-y-10">
-                  {renderRescatistaSection(
-                    'Rescatistas activos',
-                    rescatistasActivos,
-                    'No hay rescatistas activos con los filtros actuales.',
-                    'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-white p-2 shadow-lg dark:bg-gray-800">
+                    <div className={`grid gap-2 ${rescatistaTabCounts.sinEstado > 0 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'}`}>
+                      <button
+                        type="button"
+                        onClick={() => setRescatistaStatusTab('activos')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium transition-colors sm:text-base ${
+                          rescatistaStatusTab === 'activos'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        <span>Activos</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            rescatistaStatusTab === 'activos'
+                              ? 'bg-white/20 text-white'
+                              : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          }`}
+                        >
+                          {rescatistaTabCounts.activos}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRescatistaStatusTab('inactivos')}
+                        className={`flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium transition-colors sm:text-base ${
+                          rescatistaStatusTab === 'inactivos'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        <span>Inactivos</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            rescatistaStatusTab === 'inactivos'
+                              ? 'bg-white/20 text-white'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                          }`}
+                        >
+                          {rescatistaTabCounts.inactivos}
+                        </span>
+                      </button>
+                      {rescatistaTabCounts.sinEstado > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setRescatistaStatusTab('sin_estado')}
+                          className={`col-span-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-sm font-medium transition-colors sm:col-span-1 sm:text-base ${
+                            rescatistaStatusTab === 'sin_estado'
+                              ? 'bg-gray-700 text-white dark:bg-gray-500'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          <span>Sin estado</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              rescatistaStatusTab === 'sin_estado'
+                                ? 'bg-white/20 text-white'
+                                : 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
+                            }`}
+                          >
+                            {rescatistaTabCounts.sinEstado}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Filtrar en esta sección por nombre, correo, cédula o novedad..."
+                      value={filtroRescatistas}
+                      onChange={(e) => setFiltroRescatistas(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                    />
+                  </div>
+
+                  {rescatistasTabActuales.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                      <Search className="mx-auto h-10 w-10 text-gray-400" />
+                      <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                        {rescatistaTabEmptyMessage}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {rescatistasTabActuales.map(renderRescatistaCard)}
+                    </div>
                   )}
-                  {renderRescatistaSection(
-                    'Rescatistas inactivos',
-                    rescatistasInactivos,
-                    'No hay rescatistas inactivos con los filtros actuales.',
-                    'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                  )}
-                  {rescatistasSinEstado.length > 0 &&
-                    renderRescatistaSection(
-                      'Sin estado definido',
-                      rescatistasSinEstado,
-                      'No hay rescatistas sin estado.',
-                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                    )}
                 </div>
               )}
             </div>
